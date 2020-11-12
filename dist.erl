@@ -85,7 +85,7 @@ termina() ->
    'El maestro termino'.
    
 % nombre corto del servidor (nombre@máquina)
-nodo(Nombre) -> list_to_atom(atom_to_list(Nombre)++"@Isabels-MacBook-Pro").
+nodo(Nombre) -> list_to_atom(atom_to_list(Nombre)++"@Air-de-Hector").
 
 % CÓDIGO PARA ESCLAVOS
 

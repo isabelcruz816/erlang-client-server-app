@@ -45,13 +45,16 @@ tienda() ->
 tienda(Pedidos, Productos, Socios) ->
     receive
         {registra_producto, Producto, Cantidad} -> 
+            io:format("Tienda ha recibido solicitud para registrar un producto. ~n"),
             ProdNode = nodo(Producto),
             monitor_node(ProdNode, true),
             Pid = spawn(ProdNode, t6, producto, [Producto, Cantidad]),
             receive
                 {nodedown, ProdNode} -> 
+                    io:format("El nodo esta abajo... ~n"),
                     tienda(Pedidos, Productos, Socios)
                 after 0 -> 
+                    io:format("Agregando producto a la tienda... ~n"),
                     monitor_node(ProdNode, false),
                     tienda(Pedidos, Productos++[{Pid, Producto}], Socios)
 	          end;
@@ -115,11 +118,11 @@ producto(Nombre, Cantidad) ->
     end.
 
 busca_producto(_, []) -> inexistente;
-busca_producto(Producto, [{Pid, _, Producto}|_]) -> Pid;
+busca_producto(Producto, [{Pid, Producto}|_]) -> Pid;
 busca_producto(Producto, [_|Resto]) -> busca_producto(Producto, Resto).
 
 elimina_productos(_, []) -> [];
-elimina_productos(Producto, [{_, _, Producto}|Resto]) -> Resto;
+elimina_productos(Producto, [{_, Producto}|Resto]) -> Resto;
 elimina_productos(Producto, [First|Resto]) -> [First|elimina_productos(Producto, Resto)].
 
 
@@ -182,4 +185,4 @@ modifica_producto(Producto,Cantidad) ->
     {tienda, nodo(tienda)} ! {modifica_producto, Producto, Cantidad}.
 
 % Este cambia
-nodo(Nombre) -> list_to_atom(atom_to_list(Nombre)++"@Isabels-MacBook-Pro").
+nodo(Nombre) -> list_to_atom(atom_to_list(Nombre)++"@Air-de-Hector").
