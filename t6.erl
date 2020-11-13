@@ -95,7 +95,7 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
                     tienda(N, Pedidos, Productos, Atendidos ,Socios++[{Pid, Socio}])
 	        end,
             tienda(N, Pedidos, Productos, Atendidos, Socios);
-        {eliminar_socio, Socio} ->
+        {elimina_socio, Socio} ->
             case busca_socio(Socio, Socios) of
                 inexistente ->
                     io:format("El socio no existe ~n", []);
@@ -116,15 +116,19 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
             PedidoID ! {rechazar, Productos},
             tienda(N,  eliminar_pedido(Pedido, Pedidos), Productos, Atendidos, Socios);
         {acepta_pedido, Socio, Pedido} ->
-            io:format("Pedido ~w aceptado", [N]),
+            io:format("Pedido ~w aceptado ~n", [N]),
             PedidoID = busca_pedido(Pedido, Pedidos),
             tienda(N,  eliminar_pedido(Pedido, Pedidos), Productos, Atendidos++[PedidoID], Socios);
         {pedidos_en_proceso} -> 
             io:format("Pedidos en proceso: ~n", []),
-            lists:foreach(fun({Pid, _}) -> Pid ! mostrar_info end, Pedidos),
+            lists:foreach(fun({Pid, N}) -> 
+                io:format("--- Pedido # ~w ~n", [N]), 
+                Pid ! mostrar_info 
+                end, 
+            Pedidos),
             tienda(N, Pedidos, Productos, Atendidos, Socios);
         {pedidos_atendidos} ->
-            io:format("Pedidos Atendidos: ~n"),
+            io:format("---Pedidos Atendidos: ~n"),
             lists:foreach(fun(N) -> N ! mostrar_info end, Atendidos),
             tienda(N, Pedidos, Productos, Atendidos, Socios);
         {cerrar} ->
@@ -141,7 +145,7 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
 producto(Nombre, Cantidad) ->
     receive
         mostrar_info ->
-            io:format("~w ~w ~n", [Nombre, Cantidad]),
+            io:format("Producto: ~w , Cantidad: ~w ~n", [Nombre, Cantidad]),
             producto(Nombre, Cantidad);
         elimina ->
             io:format("Producto ~w eliminado ~n", [Nombre]);
@@ -184,7 +188,7 @@ pedido(Pedido, Socio) ->
                 busca_producto(Producto, Productos) ! {modifica, Cantidad} end, Pedido),
             pedido(Pedido, Socio);
         mostrar_info ->
-            lists:foreach(fun({P, _}) -> io:format("El prodcucto es: ~w ~n", [P]) end, Pedido),
+            lists:foreach(fun({P, C}) -> io:format("Producto: ~w , Cantidad: ~w  ~n", [P, C]) end, Pedido),
             pedido(Pedido, Socio)
             
     end.
@@ -212,7 +216,7 @@ rechaza_pedido(Socio, Pedido) ->
 socio(Socio)->
     receive
         elimina ->
-            io:format("Socio eliminado ~n", []);
+            io:format("Socio ~w eliminado ~n", [socio]);
         mostrar_info ->
           io:format("Socio: ~w~n", [Socio])
     end.
@@ -231,7 +235,7 @@ suscribir_socio(Socio) ->
     {tienda, nodo(tienda) } ! {suscribir_socio, Socio}.
 
 elimina_socio(Socio) ->
-    {tienda, nodo(tienda) } ! {eliminar_socio, Socio}.
+    {tienda, nodo(tienda) } ! {elimina_socio, Socio}.
 
 
 % -------------------------------------------------------------------
