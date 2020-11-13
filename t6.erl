@@ -62,7 +62,7 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
             ProductoID = spawn(t6, producto, [Producto, Cantidad]),
             ProductoID ! {crear, Productos},
             io:format("Producto ~w con cantidad ~w creado ~n", [Producto, Cantidad]),
-            tienda(N, Pedidos,  [{ProductoID, {Producto, Cantidad}}]++Productos, Atendidos, Socios);
+            tienda(N, Pedidos,  [{ProductoID, Producto, Cantidad}]++Productos, Atendidos, Socios);
         {elimina_producto, Producto} ->
             case busca_producto(Producto, Productos) of
                 inexistente ->
@@ -81,7 +81,7 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
             tienda(N, Pedidos, Productos, Atendidos, Socios);
         {lista_existencias} ->
             io:format("Productos en inventario: ~n", []),
-            lists:foreach(fun({Pid, _}) -> Pid ! mostrar_info end, Productos),
+            lists:foreach(fun({Pid, _, _}) -> Pid ! mostrar_info end, Productos),
             tienda(N, Pedidos, Productos, Atendidos, Socios);
         {suscribir_socio, Socio} ->
             So = nodo(Socio),
@@ -106,17 +106,17 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
         {lista_socios} ->
             lists:foreach(fun({Pid, _}) -> Pid ! mostrar_info end, Socios),
             tienda(N, Pedidos, Productos, Atendidos, Socios);
-        {crear_pedido, Socio, Pedido} ->
+        {crea_pedido, Socio, Pedido} ->
             PedidoID = spawn(t6, pedido, [Pedido, Socio]),
             PedidoID ! {crear, Productos},
             io:format("Pedido ~w creado ~n", [N]),
             tienda(N+1, Pedidos++[{PedidoID, N}], Productos, Atendidos, Socios);
         {rechaza_pedido, Socio, Pedido} ->
             PedidoID = busca_pedido(Pedido, Pedidos),
-            PedidoID ! {rechazar, Pedidos},
+            PedidoID ! {rechazar, Productos},
             tienda(N,  eliminar_pedido(Pedido, Pedidos), Productos, Atendidos, Socios);
         {acepta_pedido, Socio, Pedido} ->
-            io:format("Pedido ~w aceptado", N),
+            io:format("Pedido ~w aceptado", [N]),
             PedidoID = busca_pedido(Pedido, Pedidos),
             tienda(N,  eliminar_pedido(Pedido, Pedidos), Productos, Atendidos++[PedidoID], Socios);
         {pedidos_en_proceso} -> 
@@ -162,7 +162,7 @@ producto(Nombre, Cantidad) ->
 
 
 busca_producto(_, []) -> inexistente;
-busca_producto(Producto, [{Pid, Producto}|_]) -> Pid;
+busca_producto(Producto, [{Pid, Producto, _}|_]) -> Pid;
 busca_producto(Producto, [_|Resto]) -> busca_producto(Producto, Resto).
 
 elimina_productos(_, []) -> [];
@@ -172,19 +172,20 @@ elimina_productos(Producto, [First|Resto]) -> [First|elimina_productos(Producto,
 % -------------------------------------------------------------------
 %                          Proceso: Pedidos
 % -------------------------------------------------------------------
-% [{Producto, CantidadDESEAD}]
+% [{NombreProducto, CantidadDeseada}]
 pedido(Pedido, Socio) -> 
     receive
         {crear, Productos} -> 
             lists:map(fun({Producto, Cantidad}) ->
-                busca_producto(Producto, Productos) ! {modifica, Cantidad*-1} end, Productos),
+                busca_producto(Producto, Productos) ! {modifica, Cantidad*-1} end, Pedido),
             pedido(Pedido, Socio);
         {rechazar, Productos} ->
             lists:map(fun({Producto, Cantidad}) ->
-                busca_producto(Producto, Productos) ! {modifica, Cantidad} end, Productos),
+                busca_producto(Producto, Productos) ! {modifica, Cantidad} end, Pedido),
             pedido(Pedido, Socio);
-        {mostrar_info} ->
-            lists:foreach(fun({P, _}) -> io:format("El prodcucto es: ~w ~n", [P]) end, Pedido)
+        mostrar_info ->
+            lists:foreach(fun({P, _}) -> io:format("El prodcucto es: ~w ~n", [P]) end, Pedido),
+            pedido(Pedido, Socio)
             
     end.
 
@@ -259,7 +260,7 @@ modifica_producto(Producto,Cantidad) ->
     {tienda, nodo(tienda)} ! {modifica_producto, Producto, Cantidad}.
 
 lista_existencias() -> 
-    {tienda, nodo(tienda) } ! {lista_productos}.
+    {tienda, nodo(tienda) } ! {lista_existencias}.
 
 pedidos_en_proceso() ->
     {tienda, nodo(tienda) } ! {pedidos_en_proceso}.
@@ -273,4 +274,4 @@ lista_socios() ->
 % -------------------------------------------------------------------
 %                               NODO
 % -------------------------------------------------------------------
-nodo(Nombre) -> list_to_atom(atom_to_list(Nombre)++"@Isabels-MacBook-Pro").
+nodo(Nombre) -> list_to_atom(atom_to_list(Nombre)++"@CHITOXD").
