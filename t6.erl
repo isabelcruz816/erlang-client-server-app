@@ -38,7 +38,8 @@
     eliminar_pedido/2,
     pedidos_en_proceso/0,
     pedidos_atendidos/0,
-    busca_producto/2
+    busca_producto/2,
+    lista_socios/0
 ]).
 
 % -------------------------------------------------------------------
@@ -46,7 +47,7 @@
 % -------------------------------------------------------------------
 % Pedidos: [{Socio, ListaDeProductos}] . ListaDeProductos: [{Producto, Cantidad}]
 % Productos : [ {Pid, Producto} ]
-% Pedidos : [ {Pid, Numero} ]
+% Pedidos : [ {Pid, Numero, Socio} ]
 
 tienda() ->
    process_flag(trap_exit, true),
@@ -56,18 +57,12 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
     receive
         {registra_producto, Producto, Cantidad} -> 
             io:format("Tienda ha recibido solicitud para registrar un producto. ~n"),
-            ProdNode = nodo(Producto),
-            monitor_node(ProdNode, true),
-            Pid = spawn(ProdNode, t6, producto, [Producto, Cantidad]),
-            receive
-                {nodedown, ProdNode} -> 
-                    io:format("El nodo esta abajo... ~n"),
-                    tienda(N, Pedidos, Productos, Atendidos, Socios)
-                after 0 -> 
-                    io:format("Agregando producto a la tienda... ~n"),
-                    monitor_node(ProdNode, false),
-                    tienda(N, Pedidos, Productos++[{Pid, Producto}], Atendidos, Socios)
-	        end;
+            %ProdNode = nodo(Producto),
+            %monitor_node(ProdNode, true),
+            ProductoID = spawn(t6, producto, [Producto, Cantidad]),
+            ProductoID ! {crear, Productos},
+            io:format("Producto ~w con cantidad ~w creado ~n", [Producto, Cantidad]),
+            tienda(N, Pedidos,  [{ProductoID, {Producto, Cantidad}}]++Productos, Atendidos, Socios);
         {elimina_producto, Producto} ->
             case busca_producto(Producto, Productos) of
                 inexistente ->
@@ -84,7 +79,7 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
                     Pid ! {modifica, Cantidad}
             end,
             tienda(N, Pedidos, Productos, Atendidos, Socios);
-        {lista_productos} ->
+        {lista_existencias} ->
             io:format("Productos en inventario: ~n", []),
             lists:foreach(fun({Pid, _}) -> Pid ! mostrar_info end, Productos),
             tienda(N, Pedidos, Productos, Atendidos, Socios);
@@ -108,6 +103,9 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
                     Pid ! elimina
             end,
             tienda(N, Pedidos, Productos, Atendidos, elimina_el_socio(Socio, Socios));
+        {lista_socios} ->
+            lists:foreach(fun({Pid, _}) -> Pid ! mostrar_info end, Socios),
+            tienda(N, Pedidos, Productos, Atendidos, Socios);
         {crear_pedido, Socio, Pedido} ->
             PedidoID = spawn(t6, pedido, [Pedido, Socio]),
             PedidoID ! {crear, Productos},
@@ -213,7 +211,9 @@ rechaza_pedido(Socio, Pedido) ->
 socio(Socio)->
     receive
         elimina ->
-            io:format("Socio eliminado ~n", [])
+            io:format("Socio eliminado ~n", []);
+        mostrar_info ->
+          io:format("Socio: ~w~n", [Socio])
     end.
 
 
@@ -238,8 +238,10 @@ elimina_socio(Socio) ->
 % -------------------------------------------------------------------
 
 abre_tienda() ->
-    io:format("Proceso de tienda corriendo"),
-    register(tienda, spawn(t6, tienda, [])),
+    io:format("Proceso de tienda corriendo~n"),
+    PID = spawn(t6, tienda, []),
+    register(tienda, PID),
+    link(PID),
     'Tienda abierta'.
 
 cierra_tienda() ->
@@ -263,9 +265,12 @@ pedidos_en_proceso() ->
     {tienda, nodo(tienda) } ! {pedidos_en_proceso}.
     
 pedidos_atendidos() ->
-    {tienda, nodo(tienda) ! {pedidos_atendidos}}.
+    {tienda, nodo(tienda)} ! {pedidos_atendidos}.
+
+lista_socios() ->
+  {tienda, nodo(tienda)} ! {lista_socios}.
 
 % -------------------------------------------------------------------
 %                               NODO
 % -------------------------------------------------------------------
-nodo(Nombre) -> list_to_atom(atom_to_list(Nombre)++"@CHITOXD").
+nodo(Nombre) -> list_to_atom(atom_to_list(Nombre)++"@Isabels-MacBook-Pro").
