@@ -1,3 +1,4 @@
+
 % A01138741 Ana Isabel Cruz Ramos
 % A01176866 Héctor Díaz
 % A01338798 Edgar Rubén Salazar Lugo
@@ -134,10 +135,6 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
         cerrar ->
             io:format("Cerrando tienda ~n"),
             exit(whereis(tienda), kill)
-            % lists:foreach(fun(X) -> X ! {rechazar, Productos } end, Pedidos),
-            % lists:foreach(fun(X) -> X ! {rechazar, Productos } end, Atendidos),
-            % lists:foreach(fun(X) -> X ! elimina end, Productos),
-            % lists:foreach(fun(X) -> X ! elimina end, Socios)
     end.
 
 % -------------------------------------------------------------------
@@ -163,7 +160,10 @@ producto(Nombre, Cantidad) ->
                             io:format("ERROR: Resta mayor a cantidad ~n", []),
                             producto(Nombre, Cantidad)
                     end
-            end
+            end;
+        {get_cantidad, De} ->
+            De ! {Cantidad},
+            producto(Nombre, Cantidad)
     end.
 
 
@@ -175,15 +175,27 @@ elimina_productos(_, []) -> [];
 elimina_productos(Producto, [{_, Producto}|Resto]) -> Resto;
 elimina_productos(Producto, [First|Resto]) -> [First|elimina_productos(Producto, Resto)].
 
+% reloj, 3
 % -------------------------------------------------------------------
 %                          Proceso: Pedidos
 % -------------------------------------------------------------------
 % [{NombreProducto, CantidadDeseada}]
+% [{reloj, 5}...]
+% [{reloj, 3}..]
 pedido(Pedido, Socio) -> 
     receive
         {crear, Productos} -> 
             lists:map(fun({Producto, Cantidad}) ->
-                busca_producto(Producto, Productos) ! {modifica, Cantidad*-1} end, Pedido),
+                ProdID = busca_producto(Producto, Productos),
+                ProdID ! {get_cantidad, self()},
+                receive
+                    {Existencia} ->
+                        case Existencia >= Cantidad of 
+                            true -> ProdID ! {modifica, Cantidad*-1};
+                            false-> ProdID ! {modifica, Existencia*-1}
+                        end
+                end
+            end, Pedido),
             pedido(Pedido, Socio);
         {rechazar, Productos} ->
             lists:map(fun({Producto, Cantidad}) ->
