@@ -1,0 +1,12 @@
+
+
+() Documentacion
+
+() crear pedido 
+    Ajustar el pedido con base en la existe 
+
+( X ) cerrar la tienda
+
+( X ) eliminar socio
+
+* pedidos atendidos

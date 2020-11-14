@@ -131,11 +131,13 @@ tienda(N, Pedidos, Productos, Atendidos, Socios) ->
             io:format("---Pedidos Atendidos: ~n"),
             lists:foreach(fun(N) -> N ! mostrar_info end, Atendidos),
             tienda(N, Pedidos, Productos, Atendidos, Socios);
-        {cerrar} ->
-            io:format("Cerrando tienda ~n")
-            % lists:foreach(fun(X) -> cerrar ! X end, Pedidos),
-            % lists:foreach(fun(X) -> cerrar ! X end, Productos),
-            % lists:foreach(fun(X) -> cerrar ! X end, Socios)
+        cerrar ->
+            io:format("Cerrando tienda ~n"),
+            exit(whereis(tienda), kill)
+            % lists:foreach(fun(X) -> X ! {rechazar, Productos } end, Pedidos),
+            % lists:foreach(fun(X) -> X ! {rechazar, Productos } end, Atendidos),
+            % lists:foreach(fun(X) -> X ! elimina end, Productos),
+            % lists:foreach(fun(X) -> X ! elimina end, Socios)
     end.
 
 % -------------------------------------------------------------------
@@ -185,8 +187,8 @@ pedido(Pedido, Socio) ->
             pedido(Pedido, Socio);
         {rechazar, Productos} ->
             lists:map(fun({Producto, Cantidad}) ->
-                busca_producto(Producto, Productos) ! {modifica, Cantidad} end, Pedido),
-            pedido(Pedido, Socio);
+                busca_producto(Producto, Productos) ! {modifica, Cantidad} end, Pedido);
+            % pedido(Pedido, Socio);
         mostrar_info ->
             lists:foreach(fun({P, C}) -> io:format("Producto: ~w , Cantidad: ~w  ~n", [P, C]) end, Pedido),
             pedido(Pedido, Socio)
@@ -216,9 +218,10 @@ rechaza_pedido(Socio, Pedido) ->
 socio(Socio)->
     receive
         elimina ->
-            io:format("Socio ~w eliminado ~n", [socio]);
+            io:format("Socio ~w eliminado ~n", [Socio]);
         mostrar_info ->
-          io:format("Socio: ~w~n", [Socio])
+          io:format("Socio: ~w~n", [Socio]),
+          socio(Socio)
     end.
 
 
