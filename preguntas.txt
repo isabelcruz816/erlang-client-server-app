@@ -1,6 +1,0 @@
-
-
-
-separar archivos de cliente
-
-que el arreglo sólo tenga el Pid
